@@ -8,5 +8,20 @@
     <input type="url" name="youtube_url" required>
     <button type="submit">Analyze</button>
   </form>
+
+  {% if playlists %}
+    <h2>Your Spotify Playlists</h2>
+    <ul>
+      {% for playlist in playlists %}
+        <li>
+          <a href="{{ playlist.external_urls.spotify }}" target="_blank">
+            {{ playlist.name }}
+          </a> ({{ playlist.tracks.total }} tracks)
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No playlists found or not authenticated with Spotify.</p>
+  {% endif %}
 </body>
 </html>

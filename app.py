@@ -1,4 +1,5 @@
 from flask import Flask, session, redirect, request, url_for, render_template
+import requests
 from scrape_music_from_yt import scrape_music_panel_with_bs
 from functools import wraps
 
@@ -33,7 +34,8 @@ sp_oauth = SpotifyOAuth(
 @app.route('/')
 def index():
     if 'spotify_token' in session:
-        return render_template("index.html")
+        playlists = get_user_playlists()
+        return render_template('index.html', playlists=playlists)
     else:
         print("REDIRECT URI:", sp_oauth.redirect_uri)
         auth_url = sp_oauth.get_authorize_url()
@@ -64,6 +66,26 @@ def analyze():
             error = "Please provide a YouTube URL."
             return render_template('analyze.html', error=error)
     return render_template('analyze.html')
+
+def get_user_playlists():
+    access_token = session.get('spotify_token')
+    if not access_token:
+        return []
+
+    _access_token = access_token.get("access_token")
+    headers = {
+        'Authorization': f'Bearer {_access_token}'
+    }
+    playlists = []
+    url = 'https://api.spotify.com/v1/me/playlists'
+    while url:
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            break
+        data = response.json()
+        playlists.extend(data.get('items', []))
+        url = data.get('next')  # Pagination
+    return playlists
 
 if __name__ == '__main__':
     app.run(debug=True)
