@@ -50,9 +50,9 @@ def scrape_music_panel_with_bs(youtube_url):
     return results
 
 # 🔍 Example usage:
-url = "https://www.youtube.com/watch?v=goZ6lwE2ZmU"
-# url = "https://www.youtube.com/watch?v=ksQ5k9e-1_U"
-tracks = scrape_music_panel_with_bs(url)
+# url = "https://www.youtube.com/watch?v=goZ6lwE2ZmU"
+# # url = "https://www.youtube.com/watch?v=ksQ5k9e-1_U"
+# tracks = scrape_music_panel_with_bs(url)
 
-for t in tracks:
-    print(f"{t['title']} – {t['artist']} ({t['album']})")
+# for t in tracks:
+#     print(f"{t['title']} – {t['artist']} ({t['album']})")
