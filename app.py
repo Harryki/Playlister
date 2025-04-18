@@ -1,5 +1,6 @@
 from flask import Flask, session, redirect, request, url_for, render_template
 from scrape_music_from_yt import scrape_music_panel_with_bs
+from functools import wraps
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -7,6 +8,15 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv(override=True)
+
+def spotify_login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'spotify_token' not in session:
+            # Redirect to Spotify's authorization page
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For session encryption
@@ -22,7 +32,7 @@ sp_oauth = SpotifyOAuth(
 
 @app.route('/')
 def index():
-    if 'token_info' in session:
+    if 'spotify_token' in session:
         return render_template("index.html")
     else:
         print("REDIRECT URI:", sp_oauth.redirect_uri)
@@ -33,15 +43,17 @@ def index():
 def callback():
     code = request.args.get('code')
     token_info = sp_oauth.get_access_token(code)
-    session['token_info'] = token_info
+    session['spotify_token'] = token_info
     return redirect(url_for('index'))
 
 @app.route('/logout')
+@spotify_login_required
 def logout():
     session.clear()
     return redirect(url_for('index'))
 
 @app.route('/analyze', methods=['GET', 'POST'])
+@spotify_login_required
 def analyze():
     if request.method == 'POST':
         youtube_url = request.form.get('youtube_url')
