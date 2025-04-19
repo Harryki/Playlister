@@ -6,11 +6,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from typing import List, Optional
 
+# import yt_dlp
+
 class TrackMetadata:
-    def __init__(self, title: str, artist: str, album: str) -> None:
+    def __init__(self, title: str, artist: Optional[str] = None, album: Optional[str] = None) -> None:
         self.title: str = title
-        self.artist: str = artist
-        self.album: str = album
+        self.artist: Optional[str] = artist
+        self.album: Optional[str] = album
 
     def to_dict(self) -> dict:
         return {
@@ -31,6 +33,9 @@ class TrackMetadata:
     def __hash__(self) -> int:
         return hash((self.title, self.artist, self.album))
 
+    def __str__(self):
+        return f"TrackMetadata(title={self.title}, artist={self.artist}, album={self.album})"
+
 class YouTubeMusicMetadata:
     def __init__(self, video_title: str, tracks: List[TrackMetadata]) -> None:
         self.video_title: str = video_title
@@ -41,6 +46,8 @@ class YouTubeMusicMetadata:
             "video_title": self.video_title,
             "tracks": [track.to_dict() for track in self.tracks]
         }
+    def __str__(self):
+        return f"YouTubeMusicMetadata(video_title={self.video_title}, tracks={self.tracks})"
 
 
 def scrape_music_panel_with_bs(youtube_url: str) -> YouTubeMusicMetadata:
@@ -60,6 +67,7 @@ def scrape_music_panel_with_bs(youtube_url: str) -> YouTubeMusicMetadata:
     # Get the video title
     video_title: str = driver.title.replace("- YouTube", "").strip()
 
+    # try music attribute cards
     cards = driver.find_elements(By.TAG_NAME, "yt-video-attribute-view-model")
     tracks: List[TrackMetadata] = []
 
@@ -87,6 +95,33 @@ def scrape_music_panel_with_bs(youtube_url: str) -> YouTubeMusicMetadata:
 
     driver.quit()
     return YouTubeMusicMetadata(video_title, tracks)
+
+# def extract_chapters_as_metadata(youtube_url: str) -> YouTubeMusicMetadata:
+#     """
+#     Extracts chapter metadata from a YouTube video using yt-dlp.
+#     Returns a YouTubeMusicMetadata object with track titles from chapters.
+#     """
+#     ydl_opts = {
+#         'quiet': True,
+#         'no_warnings': True,
+#         'skip_download': True,
+#     }
+
+#     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+#         info = ydl.extract_info(youtube_url, download=False)
+
+#         video_title = info.get("title", "Unknown Title")
+#         chapters = info.get("chapters", [])
+
+#         tracks = []
+#         for chapter in chapters:
+#             title = chapter.get("title", "").strip()
+#             if title:
+#                 track = TrackMetadata(title=title)
+#                 if track not in tracks:
+#                     tracks.append(track)
+
+#         return YouTubeMusicMetadata(video_title, tracks)
 
 # 🔍 Example usage:
 # url = "https://www.youtube.com/watch?v=goZ6lwE2ZmU"

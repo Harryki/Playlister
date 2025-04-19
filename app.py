@@ -88,9 +88,22 @@ def analyze():
             if 'youtube_url' in request.form:
                 # Step 1: Analyze YouTube URL
                 youtube_url = request.form['youtube_url']
-                meta = scrape_music_panel_with_bs(youtube_url)
-                return render_template('analyze.html', metadata=meta)
+                metadata = scrape_music_panel_with_bs(youtube_url)
+                # TODO: there's problem that chapter title is not always the song title. 
+                # meta2 = extract_chapters_as_metadata(youtube_url)
+                # compare the length of .tracks and use longer one
+                # metadata = None
+                # if len(meta.tracks) > len(meta2.tracks):
+                #     metadata = meta
+                # else:
+                #     metadata = meta2
+                if not metadata:
+                    flash('No metadata found for the provided YouTube URL.', 'error')
+                    return redirect(url_for('index'))
+                
+                return render_template('analyze.html', metadata=metadata)
             else:
+                app.logger.info('Create Playlist Started')
                 # Step 2: Create Spotify Playlist
                 playlist_name = request.form.get('playlist_name', 'New Playlist')
                 if not playlist_name:
@@ -108,20 +121,30 @@ def analyze():
 
                 headers = {'Authorization': f'Bearer {access_token}'}
 
+                app.logger.info('Fetch Song from Spotify started')
                 for title, artist in zip(titles, artists):
-                    query = f'track:{title} artist:{artist}'
+                    if artist:
+                        query = f'track:{title} artist:{artist}'
+                    else:
+                        query = f'track:{title}'
+
                     response = requests.get(
                         'https://api.spotify.com/v1/search',
                         headers=headers,
                         params={'q': query, 'type': 'track', 'limit': 1}
                     )
+
                     if response.status_code != 200:
                         app.logger.error(f"Spotify search API error: {response.status_code} - {response.text}")
                         continue
+
                     results = response.json()
                     tracks = results.get('tracks', {}).get('items', [])
                     if tracks:
                         track_uris.append(tracks[0]['uri'])
+                    else:
+                        app.logger.info(f"No tracks found for query: {query}")
+                app.logger.info('Fetch Song from Spotify Completed')
 
                 # Create playlist
                 user_response = requests.get('https://api.spotify.com/v1/me', headers=headers)
@@ -156,6 +179,7 @@ def analyze():
                         return redirect(url_for('index'))
 
                 flash('Spotify playlist created successfully!', 'success')
+                app.logger.info('Create Playlist Completed')
                 return redirect(url_for('index'))
 
         return render_template('analyze.html')
