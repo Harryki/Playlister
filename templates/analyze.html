@@ -1,28 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Analyze YouTube Playlist</title>
-</head>
+<html>
+<head><title>Analyze YouTube Video</title></head>
 <body>
-    <h1>Analyze YouTube Playlist</h1>
-    <form method="post">
-        <label for="youtube_url">YouTube URL:</label>
-        <input type="text" id="youtube_url" name="youtube_url" required>
-        <button type="submit">Analyze</button>
+  <h1>Analyze YouTube Video</h1>
+  {% if songs %}
+    <form method="POST">
+      <label>Playlist Name (optional):</label><br>
+      <input type="text" name="playlist_name"><br><br>
+      <h2>Song List:</h2>
+      <ul>
+        {% for song in songs %}
+          <li>
+            Title: <input type="text" name="title" value="{{ song.title }}">
+            Artist: <input type="text" name="artist" value="{{ song.artist }}">
+          </li>
+        {% endfor %}
+      </ul>
+      <button type="submit">Create Spotify Playlist</button>
     </form>
-
-    {% if error %}
-        <p style="color:red;">{{ error }}</p>
-    {% endif %}
-
-    {% if results %}
-        <h2>Results for: {{ youtube_url }}</h2>
-        <ul>
-            {% for item in results %}
-                <li>{{ item }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+  {% else %}
+    <form method="POST">
+      <label>YouTube Video URL:</label><br>
+      <input type="url" name="youtube_url" required>
+      <button type="submit">Analyze</button>
+    </form>
+  {% endif %}
 </body>
 </html>

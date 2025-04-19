@@ -1,27 +1,40 @@
-from flask import Flask, session, redirect, request, url_for, render_template
+from flask import Flask, abort, flash, session, redirect, request, url_for, render_template
 import requests
 from scrape_music_from_yt import scrape_music_panel_with_bs
 from functools import wraps
+import logging
+from logging.handlers import RotatingFileHandler
 
-import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 import os
 
 load_dotenv(override=True)
 
+if not os.path.exists('logs'):
+    os.mkdir('logs')
+
+file_handler = RotatingFileHandler('logs/playlister.log', maxBytes=10240, backupCount=10)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+file_handler.setLevel(logging.INFO)
+
 def spotify_login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'spotify_token' not in session:
             # Redirect to Spotify's authorization page
-            return redirect(url_for('login', next=request.url))
+            return redirect(url_for('index', next=request.url))
         return f(*args, **kwargs)
     return decorated_function
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For session encryption
 app.config['SESSION_COOKIE_NAME'] = 'playlister_session'
+app.logger.addHandler(file_handler)
+app.logger.setLevel(logging.INFO)
+app.logger.info('Playlister startup')
 
 sp_oauth = SpotifyOAuth(
     scope="playlist-modify-public playlist-modify-private",
@@ -30,6 +43,19 @@ sp_oauth = SpotifyOAuth(
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     cache_path=".cache"
 )
+# @app.errorhandler(400)
+# def bad_request(error):
+#     return render_template('400.html', message=error.description), 400
+
+# @app.errorhandler(404)
+# def not_found_error(error):
+#     app.logger.warning(f"404 error: {error}")
+#     return render_template('404.html'), 404
+
+# @app.errorhandler(500)
+# def internal_error(error):
+#     app.logger.error(f"500 error: {error}")
+#     return render_template('500.html'), 500
 
 @app.route('/')
 def index():
@@ -57,15 +83,86 @@ def logout():
 @app.route('/analyze', methods=['GET', 'POST'])
 @spotify_login_required
 def analyze():
-    if request.method == 'POST':
-        youtube_url = request.form.get('youtube_url')
-        if youtube_url:
-            results = scrape_music_panel_with_bs(youtube_url)
-            return render_template('analyze.html', results=results, youtube_url=youtube_url)
-        else:
-            error = "Please provide a YouTube URL."
-            return render_template('analyze.html', error=error)
-    return render_template('analyze.html')
+    try:
+        if request.method == 'POST':
+            if 'youtube_url' in request.form:
+                # Step 1: Analyze YouTube URL
+                youtube_url = request.form['youtube_url']
+                songs = scrape_music_panel_with_bs(youtube_url)  # Implement this function accordingly
+                return render_template('analyze.html', songs=songs)
+            else:
+                # Step 2: Create Spotify Playlist
+                playlist_name = request.form.get('playlist_name', 'New Playlist')
+                if not playlist_name:
+                    playlist_name = 'New Playlist'
+
+                titles = request.form.getlist('title')
+                artists = request.form.getlist('artist')
+                track_uris = []
+
+                access_token = session.get('spotify_token')
+                access_token = access_token.get("access_token")
+                if not access_token:
+                    flash('Spotify authentication required.', 'error')
+                    return redirect(url_for('login'))  # Implement a login route
+
+                headers = {'Authorization': f'Bearer {access_token}'}
+
+                for title, artist in zip(titles, artists):
+                    query = f'track:{title} artist:{artist}'
+                    response = requests.get(
+                        'https://api.spotify.com/v1/search',
+                        headers=headers,
+                        params={'q': query, 'type': 'track', 'limit': 1}
+                    )
+                    if response.status_code != 200:
+                        app.logger.error(f"Spotify search API error: {response.status_code} - {response.text}")
+                        continue
+                    results = response.json()
+                    tracks = results.get('tracks', {}).get('items', [])
+                    if tracks:
+                        track_uris.append(tracks[0]['uri'])
+
+                # Create playlist
+                user_response = requests.get('https://api.spotify.com/v1/me', headers=headers)
+                if user_response.status_code != 200:
+                    app.logger.error(f"Spotify user API error: {user_response.status_code} - {user_response.text}")
+                    flash('Failed to retrieve Spotify user information.', 'error')
+                    return redirect(url_for('index'))
+
+                user_id = user_response.json()['id']
+                playlist_response = requests.post(
+                    f'https://api.spotify.com/v1/users/{user_id}/playlists',
+                    headers=headers,
+                    json={'name': playlist_name, 'public': True}
+                )
+                if playlist_response.status_code != 201:
+                    app.logger.error(f"Spotify playlist creation error: {playlist_response.status_code} - {playlist_response.text}")
+                    flash('Failed to create Spotify playlist.', 'error')
+                    return redirect(url_for('index'))
+
+                playlist_id = playlist_response.json()['id']
+
+                # Add tracks to playlist
+                if track_uris:
+                    add_tracks_response = requests.post(
+                        f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks',
+                        headers=headers,
+                        json={'uris': track_uris}
+                    )
+                    if add_tracks_response.status_code != 201:
+                        app.logger.error(f"Spotify add tracks error: {add_tracks_response.status_code} - {add_tracks_response.text}")
+                        flash('Failed to add tracks to Spotify playlist.', 'error')
+                        return redirect(url_for('index'))
+
+                flash('Spotify playlist created successfully!', 'success')
+                return redirect(url_for('index'))
+
+        return render_template('analyze.html')
+    except Exception as e:
+        app.logger.exception("An unexpected error occurred in the /analyze route.")
+        flash('An unexpected error occurred. Please try again later.', 'error')
+        return redirect(url_for('index'))
 
 def get_user_playlists():
     access_token = session.get('spotify_token')

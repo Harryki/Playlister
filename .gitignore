@@ -4,3 +4,5 @@ todo
 __pycache__
 .cache
 .vscode
+todo.md
+logs
