@@ -88,8 +88,8 @@ def analyze():
             if 'youtube_url' in request.form:
                 # Step 1: Analyze YouTube URL
                 youtube_url = request.form['youtube_url']
-                songs = scrape_music_panel_with_bs(youtube_url)  # Implement this function accordingly
-                return render_template('analyze.html', songs=songs)
+                meta = scrape_music_panel_with_bs(youtube_url)
+                return render_template('analyze.html', metadata=meta)
             else:
                 # Step 2: Create Spotify Playlist
                 playlist_name = request.form.get('playlist_name', 'New Playlist')
