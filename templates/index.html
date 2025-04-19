@@ -3,6 +3,14 @@
 <head><title>Playlister</title></head>
 <body>
   <h1>🎧 Welcome to Playlister</h1>
+
+  {% if user %}
+    <div>
+      <p><strong>{{ user.display_name }}</strong> ({{ user.email }})</p>
+    </div>
+    <hr>
+  {% endif %}
+
   <form action="/analyze" method="POST">
     <label>YouTube Video URL:</label><br>
     <input type="url" name="youtube_url" required>

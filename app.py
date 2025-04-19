@@ -61,9 +61,22 @@ sp_oauth = SpotifyOAuth(
 def index():
     if 'spotify_token' in session:
         playlists = get_user_playlists()
-        return render_template('index.html', playlists=playlists)
+
+        # ✅ Get user profile info
+        access_token = session.get('spotify_token').get("access_token")
+        headers = {
+            "Authorization": f"Bearer {access_token}"
+        }
+        user_response = requests.get('https://api.spotify.com/v1/me', headers=headers)
+
+        if user_response.status_code != 200:
+            app.logger.error(f"Failed to fetch user info: {user_response.text}")
+            user_info = None
+        else:
+            user_info = user_response.json()
+
+        return render_template('index.html', playlists=playlists, user=user_info)
     else:
-        print("REDIRECT URI:", sp_oauth.redirect_uri)
         auth_url = sp_oauth.get_authorize_url()
         return redirect(auth_url)
 
@@ -75,10 +88,9 @@ def callback():
     return redirect(url_for('index'))
 
 @app.route('/logout')
-@spotify_login_required
 def logout():
     session.clear()
-    return redirect(url_for('index'))
+    return redirect('/')
 
 @app.route('/analyze', methods=['GET', 'POST'])
 @spotify_login_required
