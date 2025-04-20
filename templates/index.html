@@ -1,35 +1,61 @@
 <!DOCTYPE html>
-<html>
-<head><title>Playlister</title></head>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Playlister</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
 <body>
-  <h1>🎧 Welcome to Playlister</h1>
+  <div class="container">
+    <h1>🎧 Welcome to Playlister</h1>
 
-  {% if user %}
-    <div>
-      <p><strong>{{ user.display_name }}</strong> ({{ user.email }})</p>
+    {% if user %}
+    <div class="profile-card">
+      <img src="{{ user.images[0].url if user.images else url_for('static', filename='default-avatar.png') }}" alt="Profile Image" class="profile-avatar">
+      <div class="profile-info">
+        <span class="profile-label">Profile</span>
+        <h1 class="profile-name">{{ user.display_name }}</h1>
+        <p class="profile-meta">
+          {{ user.followers.total | default('0') }} Followers
+        </p>
+      </div>
     </div>
-    <hr>
-  {% endif %}
+    {% endif %}
 
-  <form action="/analyze" method="POST">
-    <label>YouTube Video URL:</label><br>
-    <input type="url" name="youtube_url" required>
-    <button type="submit">Analyze</button>
-  </form>
+    <form action="/analyze" method="POST" class="hero-form">
+      <label for="youtube_url" class="hero-label">Paste a YouTube Video URL</label>
+      <div class="input-button-wrapper">
+      <input
+          type="url"
+          id="youtube_url"
+          name="youtube_url"
+          required
+          placeholder="https://youtube.com/watch?v=..."
+          class="hero-input"
+      />
+      <button type="submit" class="hero-button">Analyze</button>
+      </div>
+    </form>
 
-  {% if playlists %}
+    {% if playlists %}
     <h2>Your Spotify Playlists</h2>
-    <ul>
+    <div class="playlist-container">
       {% for playlist in playlists %}
-        <li>
-          <a href="{{ playlist.external_urls.spotify }}" target="_blank">
-            {{ playlist.name }}
-          </a> ({{ playlist.tracks.total }} tracks)
-        </li>
+        <div class="playlist-card">
+          <img class="playlist-cover" src="{{ playlist.images[0].url if playlist.images else url_for('static', filename='default-cover.png') }}" alt="Cover">
+          <div class="playlist-info">
+            <div class="playlist-name">{{ playlist.name }}</div>
+            <div class="playlist-meta">Playlist • {{ playlist.owner.display_name }}</div>
+            <div class="playlist-tracks">{{ playlist.tracks.total }} tracks</div>
+            <a class="playlist-link" href="{{ playlist.external_urls.spotify }}" target="_blank">Open in Spotify</a>
+          </div>
+        </div>
       {% endfor %}
-    </ul>
-  {% else %}
-    <p>No playlists found or not authenticated with Spotify.</p>
-  {% endif %}
+    </div>
+    {% else %}
+      <p class="dim">No playlists found or not authenticated with Spotify.</p>
+    {% endif %}
+  </div>
 </body>
 </html>

@@ -32,6 +32,7 @@ def spotify_login_required(f):
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For session encryption
 app.config['SESSION_COOKIE_NAME'] = 'playlister_session'
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO)
 app.logger.info('Playlister startup')

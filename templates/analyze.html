@@ -1,33 +1,42 @@
 <!DOCTYPE html>
-<html>
-<head><title>Analyze YouTube Video</title></head>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Analyze YouTube Video</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
 <body>
-  <h1>Analyze YouTube Video</h1>
+  <div class="container">
+    <h1>🔍 Analyze YouTube Video</h1>
 
-  {% if metadata %}
-    <form method="POST">
-      <label>Playlist Name (optional):</label><br>
-      <input type="text" name="playlist_name" value="{{ metadata.video_title }}"><br><br>
+    {% if metadata %}
+      <form method="POST" class="form-box">
+        <label for="playlist_name">Playlist Name (optional):</label>
+        <input type="text" id="playlist_name" name="playlist_name" value="{{ metadata.video_title }}">
 
-      <h2>Song List:</h2>
-      <ul>
-        {% for song in metadata.tracks %}
-          <li>
-            Title: <input type="text" name="title" value="{{ song.title }}">
-            Artist: <input type="text" name="artist" value="{{ song.artist }}">
-          </li>
-        {% endfor %}
-      </ul>
+        <h2>🎵 Song List</h2>
+        <div class="song-list">
+          {% for song in metadata.tracks %}
+            <div class="song-entry">
+              <label>Title:</label>
+              <input type="text" name="title" value="{{ song.title }}">
+              <label>Artist:</label>
+              <input type="text" name="artist" value="{{ song.artist or '' }}">
+            </div>
+          {% endfor %}
+        </div>
 
-      <button type="submit">Create Spotify Playlist</button>
-    </form>
+        <button type="submit">Create Spotify Playlist</button>
+      </form>
 
-  {% else %}
-    <form method="POST">
-      <label>YouTube Video URL:</label><br>
-      <input type="url" name="youtube_url" required>
-      <button type="submit">Analyze</button>
-    </form>
-  {% endif %}
+    {% else %}
+      <form method="POST" class="form-box">
+        <label for="youtube_url">YouTube Video URL:</label>
+        <input type="url" id="youtube_url" name="youtube_url" required placeholder="https://youtube.com/watch?v=...">
+        <button type="submit">Analyze</button>
+      </form>
+    {% endif %}
+  </div>
 </body>
 </html>
