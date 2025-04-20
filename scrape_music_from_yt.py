@@ -1,5 +1,6 @@
+import platform
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -50,13 +51,28 @@ class YouTubeMusicMetadata:
         return f"YouTubeMusicMetadata(video_title={self.video_title}, tracks={self.tracks})"
 
 
-def scrape_music_panel_with_bs(youtube_url: str) -> YouTubeMusicMetadata:
-    options: Options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
+# 🧠 Detect platform and set driver path accordingly
+def get_chromedriver_path() -> str:
+    system = platform.system()
+    machine = platform.machine()
 
-    driver: webdriver.Chrome = webdriver.Chrome(options=options)
+    if system == "Darwin":  # macOS
+        return "/opt/homebrew/bin/chromedriver"
+    elif system == "Linux" and ("arm" in machine or "aarch64" in machine):
+        return "/usr/bin/chromedriver"  # Typical in Raspberry Pi Docker container
+    else:
+        raise RuntimeError(f"Unsupported platform: {system} {machine}")
+
+def scrape_music_panel_with_bs(youtube_url: str) -> YouTubeMusicMetadata:
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+
+    service = Service(executable_path=get_chromedriver_path())
+    driver = webdriver.Chrome(service=service, options=options)
+
     driver.get(youtube_url)
 
     # 🚀 Wait for the music panel to show up
