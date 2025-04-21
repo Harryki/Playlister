@@ -50,18 +50,18 @@ if not app.logger.handlers:
 
 app.logger.propagate = False  # Prevent log duplication
 
-@app.before_first_request
-def configure_logger_for_worker():
-    import sys
-    if not any(isinstance(h, logging.StreamHandler) for h in app.logger.handlers):
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
-        stream_handler.setLevel(logging.DEBUG)
-        app.logger.addHandler(stream_handler)
-        app.logger.setLevel(logging.DEBUG)
-    app.logger.info("✅ Logger configured in worker process")
+# @app.before_first_request
+# def configure_logger_for_worker():
+#     import sys
+#     if not any(isinstance(h, logging.StreamHandler) for h in app.logger.handlers):
+#         stream_handler = logging.StreamHandler(sys.stdout)
+#         stream_handler.setFormatter(logging.Formatter(
+#             '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+#         ))
+#         stream_handler.setLevel(logging.DEBUG)
+#         app.logger.addHandler(stream_handler)
+#         app.logger.setLevel(logging.DEBUG)
+#     app.logger.info("✅ Logger configured in worker process")
 
 # Canary logs for testing
 app.logger.debug("🔥 DEBUG working")
