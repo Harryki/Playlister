@@ -13,30 +13,32 @@ import os
 
 load_dotenv(override=True)
 
-if not os.path.exists('logs'):
-    os.mkdir('logs')
+# Initialize Flask app
+app = Flask(__name__)
+app.secret_key = os.urandom(24)  # For session encryption
+app.config['SESSION_COOKIE_NAME'] = 'playlister_session'
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
-file_handler = RotatingFileHandler('logs/playlister.log', maxBytes=10240, backupCount=10)
+# Ensure log directory exists
+os.makedirs('logs', exist_ok=True)
+
+# Configure rotating file handler
+file_handler = RotatingFileHandler(
+    'logs/playlister.log',
+    maxBytes=10240,       # 10KB before rollover
+    backupCount=10        # Keep up to 10 log files
+)
 file_handler.setFormatter(logging.Formatter(
     '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
 ))
 file_handler.setLevel(logging.INFO)
 
-def spotify_login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'spotify_token' not in session:
-            # Redirect to Spotify's authorization page
-            return redirect(url_for('index', next=request.url))
-        return f(*args, **kwargs)
-    return decorated_function
-
-app = Flask(__name__)
-app.secret_key = os.urandom(24)  # For session encryption
-app.config['SESSION_COOKIE_NAME'] = 'playlister_session'
-app.config['TEMPLATES_AUTO_RELOAD'] = True
-app.logger.addHandler(file_handler)
+# Attach logger
+if not app.logger.handlers:
+    app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO)
+app.logger.propagate = False  # Prevent log duplication
+
 app.logger.info('Playlister startup')
 
 sp_oauth = SpotifyOAuth(
@@ -46,6 +48,15 @@ sp_oauth = SpotifyOAuth(
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     cache_path=".cache"
 )
+
+def spotify_login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'spotify_token' not in session:
+            # Redirect to Spotify's authorization page
+            return redirect(url_for('index', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # @app.errorhandler(400)
 # def bad_request(error):

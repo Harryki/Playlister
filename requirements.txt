@@ -4,3 +4,4 @@ beautifulsoup4
 spotipy
 selenium
 dotenv
+gunicorn
