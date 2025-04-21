@@ -14,7 +14,7 @@ jobs:
       - name: Build + Restart Docker
         run: |
           cd ~/Playlister
-          git pull origin main
+          git reset --hard origin/main
           docker stop playlister || true
           docker rm playlister || true
           docker build -t playlister-app .
