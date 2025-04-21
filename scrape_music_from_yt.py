@@ -69,6 +69,7 @@ def scrape_music_panel_with_bs(youtube_url: str) -> YouTubeMusicMetadata:
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--single-process")
 
     service = Service(executable_path=get_chromedriver_path())
     driver = webdriver.Chrome(service=service, options=options)
