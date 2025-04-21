@@ -1,4 +1,6 @@
-from flask import Flask, abort, flash, session, redirect, request, url_for, render_template
+import time
+import concurrent
+from flask import Flask, flash, session, redirect, request, url_for, render_template
 import requests
 from scrape_music_from_yt import scrape_music_panel_with_bs
 from functools import wraps
@@ -44,6 +46,7 @@ sp_oauth = SpotifyOAuth(
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     cache_path=".cache"
 )
+
 # @app.errorhandler(400)
 # def bad_request(error):
 #     return render_template('400.html', message=error.description), 400
@@ -58,23 +61,38 @@ sp_oauth = SpotifyOAuth(
 #     app.logger.error(f"500 error: {error}")
 #     return render_template('500.html'), 500
 
+def get_user_info(headers):
+    response = requests.get('https://api.spotify.com/v1/me', headers=headers)
+    if response.status_code != 200:
+        app.logger.error(f"Failed to fetch user info: {response.text}")
+        return None
+    return response.json()
+
+def get_user_playlists(headers):
+    response = requests.get('https://api.spotify.com/v1/me/playlists', headers=headers)
+    if response.status_code != 200:
+        app.logger.error(f"Failed to fetch playlists: {response.text}")
+        return []
+    return response.json().get('items', [])
+
 @app.route('/')
 def index():
     if 'spotify_token' in session:
-        playlists = get_user_playlists()
-
-        # ✅ Get user profile info
-        access_token = session.get('spotify_token').get("access_token")
+        access_token = session['spotify_token']['access_token']
         headers = {
             "Authorization": f"Bearer {access_token}"
         }
-        user_response = requests.get('https://api.spotify.com/v1/me', headers=headers)
 
-        if user_response.status_code != 200:
-            app.logger.error(f"Failed to fetch user info: {user_response.text}")
-            user_info = None
-        else:
-            user_info = user_response.json()
+        start = time.time()
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            user_future = executor.submit(get_user_info, headers)
+            playlists_future = executor.submit(get_user_playlists, headers)
+
+            user_info = user_future.result()
+            playlists = playlists_future.result()
+
+        app.logger.info(f"[index] parallel Spotify calls took {time.time() - start:.2f}s")
 
         return render_template('index.html', playlists=playlists, user=user_info)
     else:
@@ -200,26 +218,6 @@ def analyze():
         app.logger.exception("An unexpected error occurred in the /analyze route.")
         flash('An unexpected error occurred. Please try again later.', 'error')
         return redirect(url_for('index'))
-
-def get_user_playlists():
-    access_token = session.get('spotify_token')
-    if not access_token:
-        return []
-
-    _access_token = access_token.get("access_token")
-    headers = {
-        'Authorization': f'Bearer {_access_token}'
-    }
-    playlists = []
-    url = 'https://api.spotify.com/v1/me/playlists'
-    while url:
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            break
-        data = response.json()
-        playlists.extend(data.get('items', []))
-        url = data.get('next')  # Pagination
-    return playlists
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
