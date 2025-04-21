@@ -1,3 +1,4 @@
+import sys
 import time
 import concurrent
 from flask import Flask, flash, session, redirect, request, url_for, render_template
@@ -22,24 +23,52 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 # Ensure log directory exists
 os.makedirs('logs', exist_ok=True)
 
-# Configure rotating file handler
+# Log formatter
+formatter = logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+)
+
+# File handler
 file_handler = RotatingFileHandler(
     'logs/playlister.log',
-    maxBytes=10240,       # 10KB before rollover
-    backupCount=10        # Keep up to 10 log files
+    maxBytes=10240,
+    backupCount=10
 )
-file_handler.setFormatter(logging.Formatter(
-    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-))
-file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+file_handler.setLevel(logging.DEBUG)
 
-# Attach logger
+# Stream handler for Docker logs
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(formatter)
+stream_handler.setLevel(logging.DEBUG)
+
+# Attach handlers
+app.logger.setLevel(logging.DEBUG)
 if not app.logger.handlers:
     app.logger.addHandler(file_handler)
-app.logger.setLevel(logging.INFO)
+    app.logger.addHandler(stream_handler)
+
 app.logger.propagate = False  # Prevent log duplication
 
-app.logger.info('Playlister startup')
+@app.before_first_request
+def configure_logger_for_worker():
+    import sys
+    if not any(isinstance(h, logging.StreamHandler) for h in app.logger.handlers):
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        ))
+        stream_handler.setLevel(logging.DEBUG)
+        app.logger.addHandler(stream_handler)
+        app.logger.setLevel(logging.DEBUG)
+    app.logger.info("✅ Logger configured in worker process")
+
+# Canary logs for testing
+app.logger.debug("🔥 DEBUG working")
+app.logger.info("✅ INFO working")
+app.logger.warning("⚠️ WARNING working")
+app.logger.error("❌ ERROR working")
+app.logger.info("Playlister startup")
 
 sp_oauth = SpotifyOAuth(
     scope="playlist-modify-public playlist-modify-private",
@@ -116,6 +145,12 @@ def callback():
     token_info = sp_oauth.get_access_token(code)
     session['spotify_token'] = token_info
     return redirect(url_for('index'))
+
+@app.route("/logtest")
+def logtest():
+    app.logger.info("📢 INFO from /logtest")
+    app.logger.debug("🐛 DEBUG from /logtest")
+    return "Log test route hit!", 200
 
 @app.route('/logout')
 def logout():
