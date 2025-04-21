@@ -1,0 +1,21 @@
+name: Deploy to Raspberry Pi
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build + Restart Docker
+        run: |
+          cd ~/Playlister
+          git pull origin main
+          docker stop playlister || true
+          docker rm playlister || true
+          docker build -t playlister-app .
+          docker run -d -p 5000:5000 --name playlister playlister-app
