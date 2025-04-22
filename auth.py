@@ -4,6 +4,7 @@ from flask import jsonify, session, redirect, request, url_for, current_app as a
 def spotify_login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        app.logger.debug(f"[auth] session keys: {list(session.keys())}")
         if 'spotify_token' not in session:
             if request.method == 'POST':
                 app.logger.warning("[auth] Blocked POST to %s due to missing spotify_token", request.path)

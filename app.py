@@ -1,3 +1,4 @@
+from datetime import timedelta
 import sys
 import time
 import concurrent
@@ -18,6 +19,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For session encryption
 app.config['SESSION_COOKIE_NAME'] = 'playlister_session'
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.permanent_session_lifetime = timedelta(hours=1)
 
 # Ensure log directory exists
 os.makedirs('logs', exist_ok=True)
@@ -58,7 +60,7 @@ sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
     cache_path=".cache",
-    show_dialog=True
+    # show_dialog=True
 )
 
 app.register_blueprint(analyze_bp)
@@ -93,6 +95,9 @@ def get_user_playlists(headers):
 
 @app.route('/')
 def index():
+    app.logger.debug(f"[session] keys: {list(session.keys())}")
+    app.logger.debug(f"[session] spotify_token: {session.get('spotify_token')}")
+
     if 'spotify_token' in session:
         access_token = session['spotify_token']['access_token']
         headers = {
@@ -120,6 +125,7 @@ def callback():
     code = request.args.get('code')
     token_info = sp_oauth.get_access_token(code)
     session['spotify_token'] = token_info
+    session.permanent = True
     return redirect(url_for('index'))
 
 @app.route("/logtest")
