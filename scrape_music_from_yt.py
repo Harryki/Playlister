@@ -1,8 +1,12 @@
+import logging
 import time
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 from typing import List, Optional
 
+logger = logging.getLogger("scrape")
+logger.setLevel(logging.DEBUG)
+    
 class TrackMetadata:
     def __init__(self, title: str, artist: Optional[str] = None, album: Optional[str] = None) -> None:
         self.title: str = title
@@ -47,21 +51,21 @@ class YouTubeMusicMetadata:
 
 def scrape_music_panel_with_playwright(youtube_url: str) -> YouTubeMusicMetadata:
     start = time.perf_counter()
-    print(f"[INFO] Starting scrape for: {youtube_url}")
+    logger.info(f"[scrape] Starting scrape for: {youtube_url}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
         t1 = time.perf_counter()
-        print("[INFO] Navigating to YouTube URL...")
+        logger.info("[scrape] Navigating to YouTube URL...")
         page.goto(youtube_url, wait_until="networkidle")
-        print(f"[INFO] Page loaded in {time.perf_counter() - t1:.2f} seconds.")
+        logger.info(f"[scrape] Page loaded in {time.perf_counter() - t1:.2f}s")
 
         t2 = time.perf_counter()
-        print("[INFO] Waiting for music panel...")
+        logger.info("[scrape] Waiting for music panel...")
         page.wait_for_selector("yt-video-attribute-view-model", timeout=10000, state="attached")
-        print(f"[INFO] Music panel appeared in {time.perf_counter() - t2:.2f} seconds.")
+        logger.info(f"[scrape] Music panel appeared in {time.perf_counter() - t2:.2f}s")
 
         content = page.content()
         browser.close()
@@ -69,7 +73,7 @@ def scrape_music_panel_with_playwright(youtube_url: str) -> YouTubeMusicMetadata
     soup = BeautifulSoup(content, "html.parser")
     video_title_tag = soup.find("title")
     video_title: str = video_title_tag.text.replace("- YouTube", "").strip() if video_title_tag else "Unknown Title"
-    print(f"[INFO] Video title: {video_title}")
+    logger.info(f"[scrape] Video title: {video_title}")
 
     tracks: List[TrackMetadata] = []
 
@@ -89,13 +93,13 @@ def scrape_music_panel_with_playwright(youtube_url: str) -> YouTubeMusicMetadata
                 track = TrackMetadata(title, artist, album)
                 if track not in tracks:
                     tracks.append(track)
-                    print(f"[TRACK] Title: {title}, Artist: {artist}, Album: {album}")
+                    logger.debug(f"[scrape] Track found - Title: {title}, Artist: {artist}, Album: {album}")
 
         except Exception as e:
-            print(f"[WARN] Skipped a card due to: {e}")
+            logger.warning(f"[scrape] Skipped a card due to error: {e}")
 
-    print(f"[INFO] Found {len(tracks)} tracks.")
-    print(f"[INFO] Total scrape duration: {time.perf_counter() - start:.2f} seconds.")
+    logger.info(f"[scrape] Found {len(tracks)} tracks")
+    logger.info(f"[scrape] Total scrape duration: {time.perf_counter() - start:.2f}s")
     return YouTubeMusicMetadata(video_title, tracks)
 
 # def extract_chapters_as_metadata(youtube_url: str) -> YouTubeMusicMetadata:

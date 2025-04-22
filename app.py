@@ -23,14 +23,11 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 # Ensure log directory exists
 os.makedirs('logs', exist_ok=True)
 
-# Log formatter
-formatter = logging.Formatter(
-    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-)
+formatter = logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
 
 # File handler
 file_handler = RotatingFileHandler(
-    'logs/playlister.log',
+    "logs/playlister.log",
     maxBytes=10240,
     backupCount=10
 )
@@ -42,33 +39,19 @@ stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
 stream_handler.setLevel(logging.DEBUG)
 
-# Attach handlers
-app.logger.setLevel(logging.DEBUG)
-if not app.logger.handlers:
+if not app.debug and not app.testing:
+    # Clear existing handlers to avoid duplicates across workers
+    app.logger.handlers.clear()
+    app.logger.setLevel(logging.DEBUG)
     app.logger.addHandler(file_handler)
     app.logger.addHandler(stream_handler)
+    app.logger.propagate = False
 
-app.logger.propagate = False  # Prevent log duplication
-
-# @app.before_first_request
-# def configure_logger_for_worker():
-#     import sys
-#     if not any(isinstance(h, logging.StreamHandler) for h in app.logger.handlers):
-#         stream_handler = logging.StreamHandler(sys.stdout)
-#         stream_handler.setFormatter(logging.Formatter(
-#             '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-#         ))
-#         stream_handler.setLevel(logging.DEBUG)
-#         app.logger.addHandler(stream_handler)
-#         app.logger.setLevel(logging.DEBUG)
-#     app.logger.info("✅ Logger configured in worker process")
-
-# Canary logs for testing
-app.logger.debug("🔥 DEBUG working")
-app.logger.info("✅ INFO working")
-app.logger.warning("⚠️ WARNING working")
-app.logger.error("❌ ERROR working")
-app.logger.info("Playlister startup")
+    # 🔥 Inherit same handlers in other modules (like scrape)
+    scrape_logger = logging.getLogger("scrape")
+    scrape_logger.handlers = app.logger.handlers
+    scrape_logger.setLevel(app.logger.level)
+    scrape_logger.propagate = False
 
 sp_oauth = SpotifyOAuth(
     scope="playlist-modify-public playlist-modify-private",
