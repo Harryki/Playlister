@@ -2,6 +2,6 @@ Flask
 requests
 beautifulsoup4
 spotipy
-selenium
-dotenv
+python-dotenv
 gunicorn
+playwright
