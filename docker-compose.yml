@@ -10,6 +10,8 @@ services:
       FLASK_SECURE_COOKIE: "true"
     depends_on:
       - redis
+    volumes:
+      - .env:/app/.env  # ✅ mount .env into container
 
   redis:
     image: redis:7-alpine

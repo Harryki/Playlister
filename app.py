@@ -77,11 +77,16 @@ if not app.debug and not app.testing:
     scrape_logger.setLevel(app.logger.level)
     scrape_logger.propagate = False
 
+required_vars = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI"]
+for var in required_vars:
+    if not os.getenv(var):
+        raise RuntimeError(f"Missing required env var: {var}")
+
 sp_oauth = SpotifyOAuth(
     scope="playlist-modify-public playlist-modify-private",
-    redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-    client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
+    redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
+    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
     cache_path=".cache",
     # show_dialog=True
 )
