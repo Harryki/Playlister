@@ -3,7 +3,7 @@ import time
 import concurrent
 from flask import Flask, flash, session, redirect, request, url_for, render_template
 import requests
-from scrape_music_from_yt import scrape_music_panel_with_bs
+from scrape_music_from_yt import scrape_music_panel_with_playwright
 from functools import wraps
 import logging
 from logging.handlers import RotatingFileHandler
@@ -165,7 +165,7 @@ def analyze():
             if 'youtube_url' in request.form:
                 # Step 1: Analyze YouTube URL
                 youtube_url = request.form['youtube_url']
-                metadata = scrape_music_panel_with_bs(youtube_url)
+                metadata = scrape_music_panel_with_playwright(youtube_url)
                 # TODO: there's problem that chapter title is not always the song title. 
                 # meta2 = extract_chapters_as_metadata(youtube_url)
                 # compare the length of .tracks and use longer one
