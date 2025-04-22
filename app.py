@@ -19,6 +19,10 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For session encryption
 app.config['SESSION_COOKIE_NAME'] = 'playlister_session'
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",  # or 'Strict' or 'None' (see below)
+    SESSION_COOKIE_SECURE=False     # Set to True if using HTTPS
+)
 app.permanent_session_lifetime = timedelta(hours=1)
 
 # Ensure log directory exists
@@ -117,7 +121,9 @@ def index():
 
         return render_template('index.html', playlists=playlists, user=user_info)
     else:
+        app.logger.info("[index] No Spotify token found, redirecting to login")
         auth_url = sp_oauth.get_authorize_url()
+        app.logger.debug(f"[index] auth_url: {auth_url}")
         return redirect(auth_url)
 
 @app.route('/callback')
