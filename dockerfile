@@ -27,9 +27,13 @@ RUN pip install --no-cache-dir -r requirements.txt && playwright install chromiu
 
 # Copy rest of the app
 COPY . .
+COPY .env .env
 
 # Expose port
 EXPOSE 5000
+
+# Default environment config
+ENV FLASK_SECURE_COOKIE=true
 
 # Start the Flask app
 CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:5000", "app:app"]

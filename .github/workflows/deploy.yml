@@ -11,12 +11,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Create .env file from secrets
+        run: |
+          cat <<EOF > ~/Playlister/.env
+          SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
+          EOF
+
       - name: Build + Restart Docker
         run: |
           cd ~/Playlister
           git fetch origin
           git reset --hard origin/main
-          docker stop playlister || true
-          docker rm playlister || true
-          docker build -t playlister-app .
-          docker run -d -p 5000:5000 --name playlister playlister-app
+          docker compose down
+          docker compose up -d --build

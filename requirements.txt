@@ -5,3 +5,5 @@ spotipy
 python-dotenv
 gunicorn
 playwright
+Flask-Session
+redis

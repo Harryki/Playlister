@@ -8,11 +8,15 @@ import os
 
 from logging.handlers import RotatingFileHandler
 from flask import Flask, session, redirect, request, url_for, render_template
+from flask_session import Session
+import redis
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 from views.analyze import analyze_bp
 
 load_dotenv(override=True)
+
+redis_host = os.environ.get("REDIS_HOST", "localhost")
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -21,9 +25,24 @@ app.config['SESSION_COOKIE_NAME'] = 'playlister_session'
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",  # or 'Strict' or 'None' (see below)
-    SESSION_COOKIE_SECURE=False     # Set to True if using HTTPS
 )
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_SECURE_COOKIE", "false").lower() == "true"
 app.permanent_session_lifetime = timedelta(hours=1)
+
+# Redis-backed sessions
+app.config.update(
+    SESSION_TYPE="redis",
+    SESSION_REDIS=redis.from_url(f"redis://{redis_host}:6379"),
+    SESSION_PERMANENT=True,
+    SESSION_USE_SIGNER=True,
+    SESSION_KEY_PREFIX="playlister:",
+    SESSION_COOKIE_NAME="playlister_session",
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=False,  # change to True in production over HTTPS
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=1),
+)
+
+Session(app)
 
 # Ensure log directory exists
 os.makedirs('logs', exist_ok=True)
