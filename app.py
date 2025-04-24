@@ -30,27 +30,16 @@ app.config.update(
     SESSION_USE_SIGNER=True,
     SESSION_KEY_PREFIX="playlister:",
     SESSION_COOKIE_NAME="playlister_session",
-    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SAMESITE="None",
     SESSION_COOKIE_SECURE=os.environ.get("FLASK_SECURE_COOKIE", "false").lower() == "true",
+    SESSION_PERMANENT=True,
     PERMANENT_SESSION_LIFETIME=timedelta(hours=1),
     TEMPLATES_AUTO_RELOAD=True,
 )
 
 Session(app)
 
-# Ensure log directory exists
-os.makedirs('logs', exist_ok=True)
-
 formatter = logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
-
-# File handler
-file_handler = RotatingFileHandler(
-    "logs/playlister.log",
-    maxBytes=10240,
-    backupCount=10
-)
-file_handler.setFormatter(formatter)
-file_handler.setLevel(logging.DEBUG)
 
 # Stream handler for Docker logs
 stream_handler = logging.StreamHandler(sys.stdout)
@@ -61,7 +50,6 @@ if not app.debug and not app.testing:
     # Clear existing handlers to avoid duplicates across workers
     app.logger.handlers.clear()
     app.logger.setLevel(logging.DEBUG)
-    app.logger.addHandler(file_handler)
     app.logger.addHandler(stream_handler)
     app.logger.propagate = False
 
@@ -84,6 +72,15 @@ sp_oauth = SpotifyOAuth(
     cache_path=None,
     show_dialog=True
 )
+# ================== App Setting ==================
+
+try:
+    r.set("test", "123")
+    val = r.get("test")
+    app.logger.info(f"[REDIS] Test key set successfully. Value: {val}")
+    app.logger.info(f"[INIT] Session backend type: {type(app.session_interface)}")
+except Exception as e:
+    app.logger.error(f"[REDIS] Connection or write failed: {e}")
 
 app.register_blueprint(analyze_bp)
 
@@ -108,12 +105,14 @@ def get_user_playlists(headers):
         return []
     return response.json().get('items', [])
 
+@app.before_request
+def log_cookie_info():
+    app.logger.debug(f"[session] keys: {list(session.keys())}")
+    app.logger.debug(f"[session] spotify_token: {session.get('spotify_token')}")
+    app.logger.debug(f"[session] sid: {request.cookies.get('playlister_session')}")
+
 @app.route('/')
 def index():
-    app.logger.debug(f"[index][session] keys: {list(session.keys())}")
-    app.logger.debug(f"[index][session] spotify_token: {session.get('spotify_token')}")
-    app.logger.debug(f"[index][session] sid: {request.cookies.get('playlister_session')}")
-
     if 'spotify_token' in session:
         token_info = session['spotify_token']
         access_token = token_info['access_token']
@@ -202,9 +201,6 @@ def callback():
     except Exception as e:
         app.logger.error(f"[CALLBACK] Error fetching user profile: {e}")
 
-    app.logger.debug(f"[CALLBACK][session] keys: {list(session.keys())}")
-    app.logger.debug(f"[CALLBACK][session] spotify_token: {session.get('spotify_token')}")
-    app.logger.debug(f"[CALLBACK][session] sid: {request.cookies.get('playlister_session')}")
     return redirect(url_for('index'))
 
 @app.route('/logout')
