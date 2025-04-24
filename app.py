@@ -83,18 +83,40 @@ def get_user_profile(access_token):
     response.raise_for_status()
     return response.json()
 
-def get_user_playlists(headers):
-    response = requests.get('https://api.spotify.com/v1/me/playlists', headers=headers)
-    if response.status_code != 200:
-        app.logger.error(f"Failed to fetch playlists: {response.text}")
-        return []
-    return response.json().get('items', [])
+def fetch_all_user_playlists(headers):
+    """
+    Fetches all user playlists, handling pagination.
+    """
+    all_playlists = []
+    next_url = 'https://api.spotify.com/v1/me/playlists'
 
-@app.before_request
-def log_cookie_info():
-    app.logger.debug(f"[session] keys: {list(session.keys())}")
-    app.logger.debug(f"[session] spotify_token: {session.get('spotify_token')}")
-    app.logger.debug(f"[session] sid: {request.cookies.get('playlister_session')}")
+    while next_url:
+        response = requests.get(next_url, headers=headers)
+        if response.status_code != 200:
+            app.logger.error(f"Failed to fetch playlists: {response.text}")
+            return all_playlists  # Return what we have so far
+
+        data = response.json()
+        all_playlists.extend(data.get('items', []))
+        next_url = data.get('next')  # URL for the next page of playlists
+
+    return all_playlists
+
+def get_spotify_user_info(access_token):
+    """
+    Fetches and returns Spotify user information.
+    """
+    try:
+        user_info = get_user_profile(access_token)
+        return {
+            'id': user_info['id'],
+            'display_name': user_info['display_name'],
+            'images': user_info['images'],
+            'followers': user_info.get('followers', {})
+        }
+    except Exception as e:
+        app.logger.error(f"[get_spotify_user_info] Error fetching user profile: {e}")
+        return None
 
 @app.route('/')
 def index():
@@ -102,9 +124,18 @@ def index():
         token_info = session['spotify_token']
         access_token = token_info['access_token']
 
+        # Fetch user info if not already in session
+        if 'spotify_user' not in session or not session['spotify_user']:
+            user_info = get_spotify_user_info(access_token)
+            if user_info:
+                session['spotify_user'] = user_info
+            else:
+                app.logger.warning("[index] Could not fetch user info, using guest defaults.")
+                session['spotify_user'] = {}  # Ensure a default exists
+
         headers = {"Authorization": f"Bearer {access_token}"}
         start = time.time()
-        playlists = get_user_playlists(headers)
+        playlists = fetch_all_user_playlists(headers)
         app.logger.info(f"[index] Spotify playlist fetch took {time.time() - start:.2f}s")
 
         spotify_user = session.get('spotify_user', {})
@@ -140,21 +171,12 @@ def callback():
         session.permanent = True
         access_token = token_info['access_token']
 
-        user_info = get_user_profile(access_token)
-        session['spotify_user'] = {
-            'id': user_info['id'],
-            'display_name': user_info['display_name'],
-            'images': user_info['images'],
-            'followers': user_info.get('followers', {})
-        }
+        user_info = get_spotify_user_info(access_token)
+        if user_info:
+            session['spotify_user'] = user_info
+        else:
+            session['spotify_user'] = {}
 
-        app.logger.info(f"[CALLBACK] Logged in as user: {user_info['id']}")
-        app.logger.debug(f"[CALLBACK] Display name: {user_info.get('display_name')}")
-        app.logger.debug(f"[CALLBACK] followers : {user_info.get('followers', {}).get('total', 0)}")
-        app.logger.debug(f"[CALLBACK] Profile image count: {len(user_info.get('images', []))}")
-
-        if user_info.get('images'):
-            app.logger.debug(f"[CALLBACK] First profile image URL: {user_info['images'][0].get('url')}")
     except Exception as e:
         app.logger.error(f"[CALLBACK] Error during Spotify auth or profile fetch: {e}")
 
