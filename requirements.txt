@@ -1,7 +1,6 @@
 Flask
 requests
 beautifulsoup4
-spotipy
 python-dotenv
 gunicorn
 playwright
