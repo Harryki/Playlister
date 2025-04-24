@@ -30,7 +30,7 @@ app.config.update(
     SESSION_COOKIE_NAME="playlister_session",
     SESSION_COOKIE_SAMESITE="None",
     SESSION_COOKIE_SECURE=os.environ.get("FLASK_SECURE_COOKIE", "false").lower() == "true",
-    SESSION_PERMANENT=False,
+    SESSION_PERMANENT=True,
     PERMANENT_SESSION_LIFETIME=timedelta(hours=1),
     TEMPLATES_AUTO_RELOAD=True,
 )
@@ -137,6 +137,7 @@ def callback():
     try:
         token_info = get_spotify_token(code)
         session['spotify_token'] = token_info
+        session.permanent = True
         access_token = token_info['access_token']
 
         user_info = get_user_profile(access_token)
