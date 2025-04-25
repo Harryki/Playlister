@@ -50,6 +50,9 @@ def handle_playlist_creation():
     app.logger.info('Fetch Song from Spotify started')
 
     for title, artist in zip(titles, artists):
+        # if title contains (), remove it. e.g "Song Title (feat. Artist)" -> "Song Title"
+        title = title.split('(')[0].strip()  # Remove anything in parentheses
+
         query = f'track:{title} artist:{artist}' if artist else f'track:{title}'
         response = requests.get(
             'https://api.spotify.com/v1/search',
